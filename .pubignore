@@ -1,0 +1,10 @@
+# .pubignore
+# Exclude development tools and unnecessary files from the pub package
+
+dev_tools/
+.metadata
+ffigen.yaml
+open_wake_word.iml
+*.txt
+!CHANGELOG.md
+!README.md
