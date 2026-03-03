@@ -1,0 +1,82 @@
+// The Android Gradle Plugin builds the native code with the Android NDK.
+
+group = "com.example.open_wake_word"
+version = "1.0"
+
+apply plugin: "com.android.library"
+
+repositories {
+    google()
+    mavenCentral()
+}
+
+def onnxDir = new File(buildDir, "onnxruntime")
+def onnxResolved = false
+
+def resolveOnnx = {
+    if (onnxResolved) return
+    onnxResolved = true
+    
+    // Use a unique name and configure attributes to avoid variant resolution errors
+    def onnxConfig = configurations.detachedConfiguration(
+        dependencies.create("com.microsoft.onnxruntime:onnxruntime-android:1.17.1")
+    )
+    
+    onnxConfig.attributes {
+        attribute(Usage.USAGE_ATTRIBUTE, objects.named(Usage, Usage.JAVA_RUNTIME))
+        attribute(Category.CATEGORY_ATTRIBUTE, objects.named(Category, Category.LIBRARY))
+        attribute(TargetJvmEnvironment.TARGET_JVM_ENVIRONMENT_ATTRIBUTE, objects.named(TargetJvmEnvironment, TargetJvmEnvironment.ANDROID))
+    }
+
+    onnxConfig.resolvedConfiguration.resolvedArtifacts.each { artifact ->
+        def file = artifact.file
+        if (file.name.contains("onnxruntime") && file.name.endsWith(".aar")) {
+            if (!onnxDir.exists()) {
+                onnxDir.mkdirs()
+                copy {
+                    from zipTree(file)
+                    into onnxDir
+                    include "headers/**"
+                    include "jni/**"
+                }
+            }
+        }
+    }
+}
+
+android {
+    namespace = "com.example.open_wake_word"
+
+    // Use a stable compileSdk that matches most modern dependencies
+    compileSdk = 34
+
+    ndkVersion = android.ndkVersion
+
+    // Invoke the shared CMake build with the Android Gradle Plugin.
+    externalNativeBuild {
+        cmake {
+            path = "../src/CMakeLists.txt"
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_11
+        targetCompatibility = JavaVersion.VERSION_11
+    }
+
+    defaultConfig {
+        minSdk = 24
+
+        externalNativeBuild {
+            cmake {
+                resolveOnnx()
+                arguments "-DONNX_DIR=${onnxDir.absolutePath}"
+            }
+        }
+    }
+}
+
+dependencies {
+    // Standard implementation dependency. AGP will handle the AAR correctly for the APK.
+    implementation "com.microsoft.onnxruntime:onnxruntime-android:1.17.1"
+}

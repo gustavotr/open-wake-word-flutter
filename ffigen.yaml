@@ -1,0 +1,19 @@
+# Run with `dart run ffigen --config ffigen.yaml`.
+name: OpenWakeWordBindings
+description: |
+  Bindings for `src/open_wake_word.h`.
+
+  Regenerate bindings with `dart run ffigen --config ffigen.yaml`.
+output: 'lib/open_wake_word_bindings_generated.dart'
+headers:
+  entry-points:
+    - 'src/open_wake_word.h'
+  include-directives:
+    - 'src/open_wake_word.h'
+preamble: |
+  // ignore_for_file: always_specify_types
+  // ignore_for_file: camel_case_types
+  // ignore_for_file: non_constant_identifier_names
+comments:
+  style: any
+  length: full
