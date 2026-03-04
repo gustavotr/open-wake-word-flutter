@@ -100,6 +100,8 @@ void audioToMels() {
     g_state->cvReady.notify_one();
   }
 
+  Ort::RunOptions runOptions{nullptr};
+
   while (true) {
     {
       unique_lock<mutex> lockSamples{g_state->mutSamples};
@@ -116,14 +118,13 @@ void audioToMels() {
     }
 
     while (todoSamples.size() >= frameSize) {
-      vector<Ort::Value> melInputTensors;
-      melInputTensors.push_back(Ort::Value::CreateTensor<float>(
+      Ort::Value melInputTensor = Ort::Value::CreateTensor<float>(
           memoryInfo, todoSamples.data(), frameSize,
-          samplesShape.data(), samplesShape.size()));
+          samplesShape.data(), samplesShape.size());
 
       auto melOutputTensors =
-          melSession.Run(Ort::RunOptions{nullptr}, melInputNames.data(),
-                         melInputTensors.data(), melInputNames.size(),
+          melSession.Run(runOptions, melInputNames.data(),
+                         &melInputTensor, 1,
                          melOutputNames.data(), melOutputNames.size());
 
       const auto &melOut = melOutputTensors.front();
@@ -135,6 +136,7 @@ void audioToMels() {
 
       {
         unique_lock<mutex> lockMels{g_state->mutMels};
+        g_mels.reserve(g_mels.size() + melCount);
         for (size_t i = 0; i < melCount; i++) {
           g_mels.push_back((melData[i] / 10.0f) + 2.0f);
         }
@@ -178,6 +180,8 @@ void melsToFeatures() {
     g_state->cvReady.notify_one();
   }
 
+  Ort::RunOptions runOptions{nullptr};
+
   while (true) {
     {
       unique_lock<mutex> lockMels{g_state->mutMels};
@@ -195,14 +199,13 @@ void melsToFeatures() {
 
     melFrames = todoMels.size() / numMels;
     while (melFrames >= embWindowSize) {
-      vector<Ort::Value> embInputTensors;
-      embInputTensors.push_back(Ort::Value::CreateTensor<float>(
+      Ort::Value embInputTensor = Ort::Value::CreateTensor<float>(
           memoryInfo, todoMels.data(), embWindowSize * numMels, embShape.data(),
-          embShape.size()));
+          embShape.size());
 
       auto embOutputTensors =
-          embSession.Run(Ort::RunOptions{nullptr}, embInputNames.data(),
-                         embInputTensors.data(), embInputTensors.size(),
+          embSession.Run(runOptions, embInputNames.data(),
+                         &embInputTensor, 1,
                          embOutputNames.data(), embOutputNames.size());
 
       const auto &embOut = embOutputTensors.front();
@@ -214,6 +217,7 @@ void melsToFeatures() {
 
       {
         unique_lock<mutex> lockFeatures{g_state->mutFeatures};
+        g_features.reserve(g_features.size() + embOutCount);
         copy(embOutData, embOutData + embOutCount, back_inserter(g_features));
         g_state->featuresReady = true;
         g_state->cvFeatures.notify_one();
@@ -256,6 +260,8 @@ void featuresToOutput() {
     g_state->cvReady.notify_one();
   }
 
+  Ort::RunOptions runOptions{nullptr};
+
   while (true) {
     {
       unique_lock<mutex> lockFeatures{g_state->mutFeatures};
@@ -273,14 +279,13 @@ void featuresToOutput() {
 
     numBufferedFeatures = todoFeatures.size() / embFeatures;
     while (numBufferedFeatures >= wwFeatures) {
-      vector<Ort::Value> wwInputTensors;
-      wwInputTensors.push_back(Ort::Value::CreateTensor<float>(
+      Ort::Value wwInputTensor = Ort::Value::CreateTensor<float>(
           memoryInfo, todoFeatures.data(), wwFeatures * embFeatures,
-          wwShape.data(), wwShape.size()));
+          wwShape.data(), wwShape.size());
 
       auto wwOutputTensors =
-          wwSession.Run(Ort::RunOptions{nullptr}, wwInputNames.data(),
-                        wwInputTensors.data(), 1, wwOutputNames.data(), 1);
+          wwSession.Run(runOptions, wwInputNames.data(),
+                        &wwInputTensor, 1, wwOutputNames.data(), 1);
 
       const auto &wwOut = wwOutputTensors.front();
       const auto wwOutInfo = wwOut.GetTensorTypeAndShapeInfo();
@@ -313,6 +318,7 @@ int oww_init(const char* mel_model_path, const char* emb_model_path, const char*
 
     g_settings->options.SetIntraOpNumThreads(1);
     g_settings->options.SetInterOpNumThreads(1);
+    g_settings->options.SetGraphOptimizationLevel(GraphOptimizationLevel::ORT_ENABLE_ALL);
 
     g_state = new EngineState();
 
@@ -338,6 +344,7 @@ void oww_process_audio(const int16_t* audio_data, int length) {
 
   {
     unique_lock<mutex> lockSamples{g_state->mutSamples};
+    g_floatSamples.reserve(g_floatSamples.size() + length);
     for(int i = 0; i < length; i++) {
       g_floatSamples.push_back((float)audio_data[i]);
     }

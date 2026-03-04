@@ -1,6 +1,6 @@
 name: open_wake_word
 description: "A Flutter FFI plugin for openWakeWord, providing efficient on-device wake word detection."
-version: 0.1.1
+version: 0.1.2
 homepage: https://github.com/gustavotr/open-wake-word-flutter
 repository: https://github.com/gustavotr/open-wake-word-flutter
 issue_tracker: https://github.com/gustavotr/open-wake-word-flutter/issues
