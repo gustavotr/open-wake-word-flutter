@@ -29,7 +29,8 @@ A new Flutter FFI plugin project.
     'EXCLUDED_ARCHS[sdk=iphonesimulator*]' => 'i386',
     'CLANG_CXX_LANGUAGE_STANDARD' => 'c++20',
     'CLANG_CXX_LIBRARY' => 'libc++',
-    'OTHER_CPLUSPLUSFLAGS' => '-fexceptions -frtti'
+    'OTHER_CPLUSPLUSFLAGS' => '-fexceptions -frtti',
+    'HEADER_SEARCH_PATHS' => '$(inherited) "${PODS_ROOT}/onnxruntime-c/include"'
   }
   s.swift_version = '5.0'
 end
